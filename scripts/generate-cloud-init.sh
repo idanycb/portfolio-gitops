@@ -5,12 +5,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-IDENTITY_ID=$1
-
-if [ -z "$IDENTITY_ID" ]; then
-  echo "Usage: ./generate-cloud-init.sh <INFISICAL_IDENTITY_ID>"
-  exit 1
-fi
+IDENTITY_ID=${1:-"431882cb-5d6c-4655-8db7-c3089d8d7dc8"}
 
 cat <<EOF > "$ROOT_DIR/bootstrap/cloud-init.yaml"
 #cloud-config
