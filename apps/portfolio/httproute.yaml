@@ -9,6 +9,7 @@ spec:
       namespace: traefik
   hostnames:
     - "danycb.tech"
+    - "www.danycb.tech"
   rules:
     - matches:
         - path:
