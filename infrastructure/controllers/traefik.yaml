@@ -34,6 +34,10 @@ spec:
     providers:
       kubernetesGateway:
         enabled: true
+    gateway:
+      enabled: true
+      allowCrossNamespace: true
+      installCRDs: false
     ports:
       web:
         port: 80
@@ -46,8 +50,6 @@ spec:
     additionalArguments:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-    crds:
-      enabled: false
     tlsStore:
       default:
         defaultCertificate:
