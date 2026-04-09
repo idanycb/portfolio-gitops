@@ -1,6 +1,19 @@
 #!/bin/bash
 # Wait for K3s to be ready
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+LINE='export KUBECONFIG=/etc/rancher/k3s/k3s.yaml'
+
+# Check if the line already exists
+if ! grep -Fxq "$LINE" ~/.bashrc; then
+    echo "$LINE" >> ~/.bashrc
+    echo "Added KUBECONFIG to ~/.bashrc"
+else
+    echo "KUBECONFIG already present in ~/.bashrc"
+fi
+
+# Reload bashrc for current session
+source ~/.bashrc
+echo "Reloaded ~/.bashrc"
+
 until kubectl get nodes; do
   echo "Waiting for K3s..."
   sleep 5

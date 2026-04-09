@@ -1,6 +1,6 @@
 ---
 apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+kind: Issuer
 metadata:
   name: letsencrypt-staging
 spec:
@@ -15,7 +15,7 @@ spec:
             class: traefik
 ---
 apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+kind: Issuer
 metadata:
   name: letsencrypt-prod
 spec:
