@@ -22,7 +22,7 @@ spec:
         secretsPath: /
   managedKubeSecretReferences:
     - secretName: cloudflare-api-token
-      secretNamespace: traefik
+      secretNamespace: cert-manager
       template:
         includeAllSecrets: false
         data:
