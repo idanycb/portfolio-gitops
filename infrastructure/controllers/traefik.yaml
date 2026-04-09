@@ -46,6 +46,8 @@ spec:
     additionalArguments:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+    crds:
+      enabled: false
     tlsStore:
       default:
         defaultCertificate:
