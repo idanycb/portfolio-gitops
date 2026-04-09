@@ -28,18 +28,12 @@ spec:
         kind: HelmRepository
         name: traefik
         namespace: traefik
-  install:
-    crds: Skip
-    remediation:
-      retries: 3
-  upgrade:
-    crds: Skip
-    remediation:
-      retries: 3
   values:
     service:
       type: ClusterIP
     providers:
+      kubernetesCRD:
+        enabled: false
       kubernetesGateway:
         enabled: true
     ports:
