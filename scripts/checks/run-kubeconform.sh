@@ -34,7 +34,7 @@ done < <(
     ! -path "*/.git/*" \
     ! -path "*/.terraform/*" \
     ! -path "*/bootstrap/cloud-init.yaml" \
-    ! -path "*/clusters/prod/flux-system/gotk-*" \
+    ! -path "*/clusters/prod/flux-system/gotk-components.yaml" \
     -print0
 )
 

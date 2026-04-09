@@ -6,6 +6,8 @@ until kubectl get nodes; do
   sleep 5
 done
 
+kubectl create namespace infisical-secrets --dry-run=client -o yaml | kubectl apply -f -
+
 # Install Helm
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
@@ -14,6 +16,6 @@ helm repo add infisical-helm-charts 'https://dl.cloudsmith.io/public/infisical/h
 helm repo update
 helm install secrets-operator infisical-helm-charts/secrets-operator \
   --namespace infisical \
-  --create-namespace
-
-kubectl create namespace infisical-secrets --dry-run=client -o yaml | kubectl apply -f -
+  --create-namespace \
+  --set controllerManager.serviceAccount.create=false \
+  --set controllerManager.serviceAccount.name=infisical-auth

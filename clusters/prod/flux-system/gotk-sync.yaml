@@ -13,10 +13,9 @@ spec:
     name: flux-system
   url: ssh://git@github.com/idanycb/portfolio-gitops
   sparseCheckout:
-    includePaths:
-      - ./clusters/prod/**
-      - ./infrastructure/**
-      - "./apps/**"
+    - ./clusters/prod/**
+    - ./infrastructure/**
+    - "./apps/**"
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
