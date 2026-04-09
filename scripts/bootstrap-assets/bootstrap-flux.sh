@@ -1,9 +1,12 @@
 #!/bin/bash
 # scripts/bootstrap-flux.sh: Post-Cloud-Init automation to bootstrap Flux over SSH
 
+set -euo pipefail
+
 # Set up absolute paths correctly
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+POSTCLEANUP_SCRIPT="$SCRIPT_DIR/bootstrap-postcleanup.sh"
 
 # 1. Ensure KUBECONFIG is set (if running on node)
 export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}
@@ -23,6 +26,8 @@ fi
 echo "Extracting Flux SSH Key from Infisical-provisioned secret..."
 NAMESPACE="flux-system"
 SECRET_NAME="flux-system"
+INFISICAL_SECRET_NAME="${INFISICAL_SECRET_NAME:-flux-ssh-key}"
+INFISICAL_SECRET_NAMESPACE="${INFISICAL_SECRET_NAMESPACE:-$NAMESPACE}"
 
 # Wait for the secret to appear (if the operator is still syncing)
 until kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" &> /dev/null; do
@@ -35,6 +40,14 @@ TEMP_KEY=$(mktemp)
 kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath='{.data.identity}' | base64 -d > "$TEMP_KEY"
 chmod 600 "$TEMP_KEY"
 
+cleanup_temp_key() {
+  if [ -n "${TEMP_KEY:-}" ] && [ -f "$TEMP_KEY" ]; then
+    shred -u "$TEMP_KEY"
+  fi
+}
+
+trap cleanup_temp_key EXIT
+
 # 4. Run Flux Bootstrap (SSH Method)
 echo "Bootstrapping Flux over SSH..."
 flux bootstrap git \
@@ -44,9 +57,16 @@ flux bootstrap git \
   --secret-name="$SECRET_NAME" \
   --private-key-file="$TEMP_KEY"
 
-# 5. Cleanup
+echo
+echo "Running post-bootstrap cleanup..."
+if [ -f "$POSTCLEANUP_SCRIPT" ]; then
+  bash "$POSTCLEANUP_SCRIPT"
+else
+  echo "Warning: postcleanup script not found at $POSTCLEANUP_SCRIPT" >&2
+fi
+
+# 5. Cleanup temp key via trap
 echo "Cleaning up temporary SSH key..."
-shred -u "$TEMP_KEY"
 
 echo "------------------------------------------------------------"
 echo "Flux Bootstrap Complete! Check your GitHub repository for the clusters/prod directory."

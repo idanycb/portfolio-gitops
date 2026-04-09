@@ -1,0 +1,268 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - git
+  - apt-transport-https
+  - ca-certificates
+
+write_files:
+  - path: /opt/bootstrap-runtime/install-infisical-operator.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # Wait for K3s to be ready
+      export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+      until kubectl get nodes; do
+        echo "Waiting for K3s..."
+        sleep 5
+      done
+      
+      # Install Helm
+      curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      
+      # Install Infisical Operator
+      helm repo add infisical-helm-charts 'https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/'
+      helm repo update
+      helm install secrets-operator infisical-helm-charts/secrets-operator \
+        --namespace infisical \
+        --create-namespace
+      
+      kubectl create namespace infisical-secrets --dry-run=client -o yaml | kubectl apply -f -
+
+  - path: /opt/bootstrap-runtime/bootstrap-flux.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      # scripts/bootstrap-flux.sh: Post-Cloud-Init automation to bootstrap Flux over SSH
+      
+      set -euo pipefail
+      
+      # Set up absolute paths correctly
+      SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+      POSTCLEANUP_SCRIPT="$SCRIPT_DIR/bootstrap-postcleanup.sh"
+      
+      # 1. Ensure KUBECONFIG is set (if running on node)
+      export KUBECONFIG=${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}
+      
+      if [ ! -f "$KUBECONFIG" ]; then
+        echo "Error: Kubeconfig not found at $KUBECONFIG. Are you on the OCI node?"
+        exit 1
+      fi
+      
+      # 2. Install Flux CLI (if not present)
+      if ! command -v flux &> /dev/null; then
+        echo "Installing Flux CLI..."
+        curl -s https://fluxcd.io/install.sh | sudo bash
+      fi
+      
+      # 3. Extract the Flux SSH Key from Infisical Secret
+      echo "Extracting Flux SSH Key from Infisical-provisioned secret..."
+      NAMESPACE="flux-system"
+      SECRET_NAME="flux-system"
+      INFISICAL_SECRET_NAME="${INFISICAL_SECRET_NAME:-flux-ssh-key}"
+      INFISICAL_SECRET_NAMESPACE="${INFISICAL_SECRET_NAMESPACE:-$NAMESPACE}"
+      
+      # Wait for the secret to appear (if the operator is still syncing)
+      until kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" &> /dev/null; do
+        echo "Waiting for secret $SECRET_NAME in namespace $NAMESPACE..."
+        sleep 5
+      done
+      
+      # Save the private key to a temporary file
+      TEMP_KEY=$(mktemp)
+      kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath='{.data.identity}' | base64 -d > "$TEMP_KEY"
+      chmod 600 "$TEMP_KEY"
+      
+      cleanup_temp_key() {
+        if [ -n "${TEMP_KEY:-}" ] && [ -f "$TEMP_KEY" ]; then
+          shred -u "$TEMP_KEY"
+        fi
+      }
+      
+      trap cleanup_temp_key EXIT
+      
+      # 4. Run Flux Bootstrap (SSH Method)
+      echo "Bootstrapping Flux over SSH..."
+      flux bootstrap git \
+        --url=ssh://git@github.com/idanycb/portfolio-gitops \
+        --branch=main \
+        --path=clusters/prod \
+        --secret-name="$SECRET_NAME" \
+        --private-key-file="$TEMP_KEY"
+      
+      echo
+      echo "Running post-bootstrap cleanup..."
+      if [ -f "$POSTCLEANUP_SCRIPT" ]; then
+        bash "$POSTCLEANUP_SCRIPT"
+      else
+        echo "Warning: postcleanup script not found at $POSTCLEANUP_SCRIPT" >&2
+      fi
+      
+      # 5. Cleanup temp key via trap
+      echo "Cleaning up temporary SSH key..."
+      
+      echo "------------------------------------------------------------"
+      echo "Flux Bootstrap Complete! Check your GitHub repository for the clusters/prod directory."
+      echo "------------------------------------------------------------"
+
+  - path: /opt/bootstrap-runtime/bootstrap-postcleanup.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      
+      set -e
+      
+      MANIFEST_DIR="/var/lib/rancher/k3s/server/manifests"
+      RUNTIME_SCRIPT_DIR="/opt/bootstrap-runtime"
+      
+      echo "🔍 Waiting for Flux-managed Traefik to take over..."
+      echo
+      
+      # Wait for Flux HelmRelease to exist
+      echo "⏳ Waiting for HelmRelease 'traefik' to appear..."
+      until kubectl get helmrelease -A 2>/dev/null | grep -qi "traefik"; do
+        sleep 5
+      done
+      echo "✔ Flux HelmRelease for Traefik detected."
+      
+      # Wait for Traefik Deployment to be healthy
+      echo "⏳ Waiting for Traefik Deployment to become Ready..."
+      until kubectl -n traefik get deploy traefik 2>/dev/null | grep -q "1/1"; do
+        sleep 5
+      done
+      echo "✔ Flux-managed Traefik Deployment is Ready."
+      
+      # Wait for K3s Traefik to disappear (K3s version uses namespace 'kube-system')
+      echo "⏳ Checking for K3s-managed Traefik..."
+      if kubectl -n kube-system get deploy traefik 2>/dev/null; then
+        echo "⚠ K3s Traefik still exists — waiting for Flux to override it..."
+        until ! kubectl -n kube-system get deploy traefik 2>/dev/null; do
+          sleep 5
+        done
+      fi
+      echo "✔ K3s Traefik is no longer active."
+      
+      echo
+      echo "🧹 Starting cleanup of K3s static manifests..."
+      
+      # System components to keep
+      SYSTEM_COMPONENTS=(
+        "ccm.yaml"
+        "coredns.yaml"
+        "local-storage.yaml"
+        "metrics-server"
+        "rolebindings.yaml"
+        "runtimes.yaml"
+      )
+      
+      # Custom bootstrap components to remove
+      CUSTOM_COMPONENTS=(
+        "infisical-auth-setup.yaml"
+        "infisical-secret-sync.yaml"
+        "traefik.yaml"
+      )
+      
+      # Remove custom components
+      for file in "${CUSTOM_COMPONENTS[@]}"; do
+        if [ -f "$MANIFEST_DIR/$file" ]; then
+          echo "🗑 Removing $file"
+          sudo rm -f "$MANIFEST_DIR/$file"
+        else
+          echo "✔ $file already removed"
+        fi
+      done
+      
+      echo
+      echo "✨ Handover complete. Flux now fully owns Traefik and Infisical."
+      
+      echo
+      echo "🗑 Removing runtime bootstrap scripts..."
+      if [ -d "$RUNTIME_SCRIPT_DIR" ]; then
+        sudo rm -rf "$RUNTIME_SCRIPT_DIR"
+        echo "✔ Removed $RUNTIME_SCRIPT_DIR"
+      else
+        echo "✔ $RUNTIME_SCRIPT_DIR already removed"
+      fi
+      
+      echo
+      echo "Cleanup complete. K3s static manifests cleaned up, and runtime scripts removed."
+
+  - path: /var/lib/rancher/k3s/server/manifests/infisical-auth-setup.yaml
+    content: |
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: infisical-auth
+        namespace: infisical
+      ---
+      apiVersion: v1
+      kind: Secret
+      type: kubernetes.io/service-account-token
+      metadata:
+        name: infisical-auth-token
+        namespace: infisical
+        annotations:
+          kubernetes.io/service-account.name: infisical-auth
+      ---
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: role-tokenreview-binding
+        namespace: infisical
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: system:auth-delegator
+      subjects:
+        - kind: ServiceAccount
+          name: infisical-auth
+          namespace: infisical
+
+  - path: /var/lib/rancher/k3s/server/manifests/infisical-secret-sync.yaml
+    content: |
+      apiVersion: secrets.infisical.com/v1alpha1
+      kind: InfisicalSecret
+      metadata:
+        name: flux-ssh-key
+        namespace: infisical-secrets
+      spec:
+        hostAPI: https://app.infisical.com/api
+        syncConfig:
+          instantUpdates: true
+          resyncInterval: 15m
+        authentication:
+          kubernetesAuth:
+            identityId: "431882cb-5d6c-4655-8db7-c3089d8d7dc8"
+            autoCreateServiceAccountToken: true
+            serviceAccountRef:
+              name: infisical-auth
+              namespace: infisical
+            secretsScope:
+              projectId: "d0ce9d00-ee31-4669-b3ca-0fcbb593f862"
+              envSlug: prod
+              secretsPath: /
+        managedKubeSecretReferences:
+          - secretName: flux-ssh-key
+            secretNamespace: flux-system
+            template:
+              includeAllSecrets: false
+              data:
+                identity: "{{ .FLUX_SSH_PRIVATE_KEY.Value }}"
+
+runcmd:
+  - mkdir -p "/opt/bootstrap-runtime"
+  # Configure Firewall (iptables - bypass Oracle default REJECT)
+  - iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
+  - iptables -I INPUT 1 -p tcp --dport 6443 -j ACCEPT
+  # Save iptables (requires iptables-persistent)
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+  - netfilter-persistent save
+  # Install K3s
+  - curl -sfL https://get.k3s.io | sh -s - --tls-san danycb.tech --write-kubeconfig-mode 644
+  # Run the Infisical Operator installation script
+  - "/opt/bootstrap-runtime/install-infisical-operator.sh"

@@ -1,13 +1,32 @@
-#!/bin/bash
-# Builder script to generate the final cloud-init.yaml from separate files
+#!/usr/bin/env bash
 
-# Set up absolute paths correctly
+# Generate bootstrap/cloud-init.yaml from the source assets under scripts/.
+
+set -euo pipefail
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+ASSET_DIR="$SCRIPT_DIR/bootstrap-assets"
+OUTPUT_FILE="$ROOT_DIR/bootstrap/cloud-init.yaml"
+RUNTIME_SCRIPT_DIR="/opt/bootstrap-runtime"
+INFISICAL_FLUX_FILE="$ROOT_DIR/infrastructure/configs/infisical/infisical-flux.yaml"
 
-IDENTITY_ID=${1:-"431882cb-5d6c-4655-8db7-c3089d8d7dc8"}
+required_files=(
+  "$ASSET_DIR/install-infisical-operator.sh"
+  "$ASSET_DIR/infisical-auth-setup.yaml"
+  "$ASSET_DIR/infisical-secret-sync.yaml"
+  "$ASSET_DIR/bootstrap-flux.sh"
+  "$ASSET_DIR/bootstrap-postcleanup.sh"
+)
 
-cat <<EOF > "$ROOT_DIR/bootstrap/cloud-init.yaml"
+for file in "${required_files[@]}"; do
+  if [[ ! -f "$file" ]]; then
+    echo "Error: required file not found: $file" >&2
+    exit 1
+  fi
+done
+
+cat <<EOF > "$OUTPUT_FILE"
 #cloud-config
 package_update: true
 package_upgrade: true
@@ -19,20 +38,31 @@ packages:
   - ca-certificates
 
 write_files:
-  - path: /usr/local/bin/install-infisical-operator.sh
+  - path: $RUNTIME_SCRIPT_DIR/install-infisical-operator.sh
     permissions: '0755'
     content: |
-$(sed '      s/^/      /' "$ROOT_DIR/bootstrap/install-infisical-operator.sh")
+$(sed 's/^/      /' "$ASSET_DIR/install-infisical-operator.sh")
+
+  - path: $RUNTIME_SCRIPT_DIR/bootstrap-flux.sh
+    permissions: '0755'
+    content: |
+$(sed 's/^/      /' "$ASSET_DIR/bootstrap-flux.sh")
+
+  - path: $RUNTIME_SCRIPT_DIR/bootstrap-postcleanup.sh
+    permissions: '0755'
+    content: |
+$(sed 's/^/      /' "$ASSET_DIR/bootstrap-postcleanup.sh")
 
   - path: /var/lib/rancher/k3s/server/manifests/infisical-auth-setup.yaml
     content: |
-$(sed '      s/^/      /' "$ROOT_DIR/bootstrap/infisical-auth-setup.yaml")
+$(sed 's/^/      /' "$ASSET_DIR/infisical-auth-setup.yaml")
 
-  - path: /var/lib/rancher/k3s/server/manifests/flux-secret-sync.yaml
+  - path: /var/lib/rancher/k3s/server/manifests/infisical-secret-sync.yaml
     content: |
-$(sed "      s/YOUR_IDENTITY_ID_HERE/$IDENTITY_ID/" "$ROOT_DIR/bootstrap/flux-secret-sync.yaml" | sed '      s/^/      /')
+$(sed 's/^/      /' "$ASSET_DIR/infisical-secret-sync.yaml")
 
 runcmd:
+  - mkdir -p "$RUNTIME_SCRIPT_DIR"
   # Configure Firewall (iptables - bypass Oracle default REJECT)
   - iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
   - iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
@@ -43,7 +73,10 @@ runcmd:
   # Install K3s
   - curl -sfL https://get.k3s.io | sh -s - --tls-san danycb.tech --write-kubeconfig-mode 644
   # Run the Infisical Operator installation script
-  - /usr/local/bin/install-infisical-operator.sh
+  - "$RUNTIME_SCRIPT_DIR/install-infisical-operator.sh"
 EOF
 
-echo "Successfully generated $ROOT_DIR/bootstrap/cloud-init.yaml with Identity ID: $IDENTITY_ID"
+cp "$ASSET_DIR/infisical-secret-sync.yaml" "$INFISICAL_FLUX_FILE"
+
+echo "Successfully generated $OUTPUT_FILE"
+echo "Successfully synced $INFISICAL_FLUX_FILE from infisical-secret-sync.yaml"

@@ -9,10 +9,8 @@ flux-deploy-key.pub
 .env.*.local
 
 # Kubernetes/Flux artifacts
-flux-system/
 kubeconfig
 .kube/
-cloud-init.yaml
 bootstrap/cloud-init.yaml
 
 # OS/Editor specific
