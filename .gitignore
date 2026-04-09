@@ -18,3 +18,7 @@ bootstrap/cloud-init.yaml
 .vscode/
 .idea/
 *.swp
+
+# Temp files
+.cache/
+schemas/
