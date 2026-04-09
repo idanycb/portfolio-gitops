@@ -56,7 +56,8 @@ flux bootstrap git \
   --branch=main \
   --path=clusters/prod \
   --secret-name="$SECRET_NAME" \
-  --private-key-file="$TEMP_KEY"
+  --private-key-file="$TEMP_KEY" \
+  --components-extra=image-reflector-controller,image-automation-controller
 
 echo
 echo "Running post-bootstrap cleanup..."

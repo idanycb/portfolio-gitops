@@ -37,6 +37,6 @@ spec:
     kind: OCIRepository
     name: cert-manager
   values:
-    crd:
+    crds:
       enabled: true
       keep: true
