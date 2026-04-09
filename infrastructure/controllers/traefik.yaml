@@ -32,8 +32,7 @@ spec:
     service:
       enabled: true
       single: true
-      spec:  
-        type: ClusterIP
+      type: ClusterIP
     providers:
       kubernetesGateway:
         enabled: true
