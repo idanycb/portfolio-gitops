@@ -29,6 +29,8 @@ spec:
         name: traefik
         namespace: traefik
   values:
+    crds:
+      enabled: false
     service:
       type: ClusterIP
     providers:
@@ -38,6 +40,7 @@ spec:
       enabled: true
       allowCrossNamespace: true
       installCRDs: false
+      experimentalChannel: "v1.5"
     ports:
       web:
         port: 80
