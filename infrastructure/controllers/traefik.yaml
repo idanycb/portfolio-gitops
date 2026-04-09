@@ -31,8 +31,7 @@ spec:
   values:
     service:
       enabled: true
-      single: true
-      type: ClusterIP
+      type: LoadBalancer
     providers:
       kubernetesGateway:
         enabled: true
