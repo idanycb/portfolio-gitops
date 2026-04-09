@@ -31,6 +31,15 @@ spec:
   values:
     service:
       type: ClusterIP
+    gateway:
+      enabled: true
+      allowCrossNamespace: true
+      listeners:
+        web:
+          port: 80
+        websecure:
+          port: 443
+
     providers:
       kubernetesCRD:
         enabled: false
