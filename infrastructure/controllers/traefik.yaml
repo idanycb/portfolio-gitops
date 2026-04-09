@@ -31,9 +31,21 @@ spec:
   values:
     service:
       type: ClusterIP
+    providers:
+      kubernetesGateway:
+        enabled: true
+      kubernetesCRD:
+        enabled: false
+      kubernetesIngress:
+        enabled: false
+
+    gatewayClass:
+      enabled: true
+      name: traefik
+
     gateway:
       enabled: true
-      allowCrossNamespace: true
+      name: traefik-gateway
       listeners:
         web:
           port: 80
@@ -41,30 +53,20 @@ spec:
         websecure:
           port: 443
           protocol: HTTPS
+          certificateRefs:
+            - name: wildcard-danycb-tech-tls
 
-    providers:
-      kubernetesCRD:
-        enabled: false
-      kubernetesGateway:
-        enabled: true
     ports:
       web:
         port: 80
         expose:
-          enabled: true
-        protocol: TCP
+          default: true
+        exposedPort: 80
       websecure:
         port: 443
         expose:
-          enabled: true
-        protocol: TCP
-    additionalArguments:
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-    tlsStore:
-      default:
-        defaultCertificate:
-          secretName: wildcard-danycb-tech-tls
+          default: true
+        exposedPort: 443
 
     deployment:
       replicas: 2
