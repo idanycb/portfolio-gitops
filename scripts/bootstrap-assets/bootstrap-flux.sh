@@ -23,11 +23,11 @@ if ! command -v flux &> /dev/null; then
 fi
 
 # 3. Extract the Flux SSH Key from Infisical Secret
-echo "Extracting Flux SSH Key from Infisical-provisioned secret..."
 NAMESPACE="flux-system"
-SECRET_NAME="flux-system"
-INFISICAL_SECRET_NAME="${INFISICAL_SECRET_NAME:-flux-ssh-key}"
-INFISICAL_SECRET_NAMESPACE="${INFISICAL_SECRET_NAMESPACE:-$NAMESPACE}"
+SECRET_NAME="flux-ssh-key"
+
+echo "Ensuring namespace $NAMESPACE exists..."
+kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
 # Wait for the secret to appear (if the operator is still syncing)
 until kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" &> /dev/null; do
@@ -35,6 +35,7 @@ until kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" &> /dev/null; do
   sleep 5
 done
 
+echo "Extracting Flux SSH Key from Infisical-provisioned secret..."
 # Save the private key to a temporary file
 TEMP_KEY=$(mktemp)
 kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath='{.data.identity}' | base64 -d > "$TEMP_KEY"
