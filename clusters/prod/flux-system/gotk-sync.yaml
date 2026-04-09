@@ -12,10 +12,6 @@ spec:
   secretRef:
     name: flux-system
   url: ssh://git@github.com/idanycb/portfolio-gitops
-  sparseCheckout:
-    - ./clusters/prod/**
-    - ./infrastructure/**
-    - "./apps/**"
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
