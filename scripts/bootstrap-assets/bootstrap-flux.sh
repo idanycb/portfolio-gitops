@@ -49,9 +49,6 @@ cleanup_temp_key() {
 
 trap cleanup_temp_key EXIT
 
-# Add Gateway API CRDs to K3s manifests for Flux to manage
-curl -LO https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml
-sudo mv standard-install.yaml /var/lib/rancher/k3s/server/manifests/gateway-api-crds.yaml
 
 # 4. Run Flux Bootstrap (SSH Method)
 echo "Bootstrapping Flux over SSH..."
@@ -62,6 +59,10 @@ flux bootstrap git \
   --secret-name="$SECRET_NAME" \
   --private-key-file="$TEMP_KEY" \
   --components-extra=image-reflector-controller,image-automation-controller
+
+# Add Gateway API CRDs to K3s manifests for Flux to manage
+# curl -LO https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml
+# sudo mv standard-install.yaml /var/lib/rancher/k3s/server/manifests/gateway-api-crds.yaml
 
 echo
 echo "Running post-bootstrap cleanup..."
