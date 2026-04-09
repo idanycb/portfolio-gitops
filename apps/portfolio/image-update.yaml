@@ -1,0 +1,41 @@
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: portfolio
+  namespace: apps
+spec:
+  image: ghcr.io/idanycb/portfolio
+  interval: 5h
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: portfolio-policy
+  namespace: apps
+spec:
+  imageRepositoryRef:
+    name: portfolio
+  policy:
+    alphabetical: {}
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: portfolio-update
+  namespace: apps
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  git:
+    commit:
+      author:
+        email: fluxcdbot@users.noreply.github.com
+        name: fluxcdbot
+      messageTemplate: "Update portfolio image to {{ .NewImage }}"
+  update:
+    path: "./apps/portfolio"
+    strategy: Setters
