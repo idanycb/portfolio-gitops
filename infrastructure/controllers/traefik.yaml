@@ -30,7 +30,10 @@ spec:
         namespace: traefik
   values:
     service:
-      type: ClusterIP
+      enabled: true
+      single: true
+      spec:  
+        type: ClusterIP
     providers:
       kubernetesGateway:
         enabled: true
