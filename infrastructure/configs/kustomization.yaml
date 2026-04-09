@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   - ./infisical
   - cert-manager.yaml
-  - http-redirect.yaml
+  - traefik.yaml
