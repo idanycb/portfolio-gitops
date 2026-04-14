@@ -35,7 +35,7 @@ spec:
       author:
         email: fluxcdbot@users.noreply.github.com
         name: fluxcdbot
-      messageTemplate: "Update backend image to {{ .NewImage }}"
+      messageTemplate: "Update doc-analyzer backend image"
   update:
     path: "./apps/doc-analyzer/backend"
     strategy: Setters
