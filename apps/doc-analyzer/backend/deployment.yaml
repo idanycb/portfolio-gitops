@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: doc-analyzer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+        - name: wait-for-pgvector
+          image: pgvector/pgvector:0.8.2-pg18-trixie
+          envFrom:
+            - configMapRef:
+                name: env
+            - secretRef:
+                name: findoc-analyzer-secrets
+          command:
+            - sh
+            - -c
+            - until pg_isready -h pgvector -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do echo waiting for postgres; sleep 2; done
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: env
+            - secretRef:
+                name: findoc-analyzer-secrets
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=20"
+          image: ghcr.io/idanycb/findoc-rag-backend:main-1-14d0aa6d9de421ccb7030f49691ea8db1c97852b  # {"$imagepolicy": "doc-analyzer:backend"}
+          name: backend
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 900m
+              memory: 1536Mi
+      restartPolicy: Always

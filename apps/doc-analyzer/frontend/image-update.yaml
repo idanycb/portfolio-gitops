@@ -2,28 +2,28 @@
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImageRepository
 metadata:
-  name: portfolio
-  namespace: portfolio
+  name: frontend
+  namespace: doc-analyzer
 spec:
-  image: ghcr.io/idanycb/portfolio
+  image: ghcr.io/idanycb/findoc-rag-frontend
   interval: 5h
 ---
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImagePolicy
 metadata:
-  name: portfolio-policy
-  namespace: portfolio
+  name: frontend-policy
+  namespace: doc-analyzer
 spec:
   imageRepositoryRef:
-    name: portfolio
+    name: frontend
   policy:
     alphabetical: {}
 ---
 apiVersion: image.toolkit.fluxcd.io/v1
 kind: ImageUpdateAutomation
 metadata:
-  name: portfolio-update
-  namespace: portfolio
+  name: frontend-update
+  namespace: doc-analyzer
 spec:
   interval: 30m
   sourceRef:
@@ -35,7 +35,7 @@ spec:
       author:
         email: fluxcdbot@users.noreply.github.com
         name: fluxcdbot
-      messageTemplate: "Update portfolio image to {{ .NewImage }}"
+      messageTemplate: "Update frontend image to {{ .NewImage }}"
   update:
-    path: "./apps/portfolio"
+    path: "./apps/doc-analyzer/frontend"
     strategy: Setters

@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: portfolio
-  namespace: portfolio
+  name: frontend
+  namespace: doc-analyzer
 spec:
-  selector:
-    app: portfolio
   ports:
     - name: http
       port: 80
       targetPort: 3000
+  selector:
+    app: frontend

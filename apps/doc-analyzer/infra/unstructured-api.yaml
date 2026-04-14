@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unstructured-api
+  namespace: doc-analyzer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unstructured-api
+  template:
+    metadata:
+      labels:
+        app: unstructured-api
+    spec:
+      containers:
+        - env:
+            - name: PORT
+              value: "8000"
+            - name: UNSTRUCTURED_MEMORY_FREE_MINIMUM_MB
+              value: "0"
+          image: downloads.unstructured.io/unstructured-io/unstructured-api:latest
+          name: unstructured-api
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 300m
+              memory: 1Gi
+            limits:
+              cpu: 1200m
+              memory: 3Gi
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: unstructured-api
+  namespace: doc-analyzer
+spec:
+  ports:
+    - name: "8000"
+      port: 8000
+      targetPort: 8000
+  selector:
+    app: unstructured-api

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: portfolio
-  namespace: apps
+  namespace: portfolio
 spec:
   replicas: 2
   selector:
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: portfolio
-          image: ghcr.io/idanycb/portfolio:main-6-b71269c48fb8fb9f8f21ee4dfc7a2f07c49c15b2  # {"$imagepolicy": "apps:portfolio"}
+          image: ghcr.io/idanycb/portfolio:main-6-b71269c48fb8fb9f8f21ee4dfc7a2f07c49c15b2  # {"$imagepolicy": "portfolio:portfolio"}
           resources:
             requests:
               cpu: 50m

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgvector
+  namespace: doc-analyzer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgvector
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: pgvector
+    spec:
+      containers:
+        - envFrom:
+            - configMapRef:
+                name: env
+            - secretRef:
+                name: findoc-analyzer-secrets
+          image: pgvector/pgvector:0.8.2-pg18-trixie
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            failureThreshold: 20
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          name: pgvector
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 350m
+              memory: 1Gi
+            limits:
+              cpu: 1200m
+              memory: 3Gi
+          volumeMounts:
+            - mountPath: /var/lib/postgresql
+              name: postgres-data
+      restartPolicy: Always
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data
+  namespace: doc-analyzer
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgvector
+  namespace: doc-analyzer
+spec:
+  ports:
+    - name: "5432"
+      port: 5432
+      targetPort: 5432
+  selector:
+    app: pgvector

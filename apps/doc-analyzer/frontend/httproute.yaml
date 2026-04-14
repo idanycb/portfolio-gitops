@@ -1,21 +1,20 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: portfolio-root
-  namespace: portfolio
+  name: findoc-analyzer-root
+  namespace: doc-analyzer
 spec:
   parentRefs:
     - name: traefik-gateway
       namespace: traefik
       sectionName: websecure
   hostnames:
-    - "danycb.tech"
-    - "www.danycb.tech"
+    - "doc-analyzer.danycb.tech"
   rules:
     - matches:
         - path:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: portfolio
+        - name: frontend
           port: 80
