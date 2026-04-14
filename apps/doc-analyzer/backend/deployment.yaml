@@ -34,7 +34,7 @@ spec:
           env:
             - name: JAVA_TOOL_OPTIONS
               value: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=20"
-          image: ghcr.io/idanycb/findoc-rag-backend:main-1-14d0aa6d9de421ccb7030f49691ea8db1c97852b  # {"$imagepolicy": "doc-analyzer:backend"}
+          image: ghcr.io/idanycb/findoc-rag-backend:main-1-14d0aa6d9de421ccb7030f49691ea8db1c97852b  # {"$imagepolicy": "doc-analyzer:backend-policy"}
           name: backend
           ports:
             - containerPort: 8080

@@ -8,7 +8,6 @@ data:
   SPRING_DATASOURCE_URL: jdbc:postgresql://pgvector:5432/findoc_analyzer_db
   UNSTRUCTURED_API_URL: http://unstructured-api:8000
   UNSTRUCTURED_URL: http://unstructured-api:8000/general/v0/general
-  NEXT_API_DESTINATION: http://backend:8080/api/v1
 kind: ConfigMap
 metadata:
   name: env
