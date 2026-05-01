@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: portfolio
-          image: ghcr.io/idanycb/portfolio:v2.0.0  # {"$imagepolicy": "portfolio:portfolio-policy"}
+          image: ghcr.io/idanycb/portfolio:main-6-b71269c48fb8fb9f8f21ee4dfc7a2f07c49c15b2 # {"$imagepolicy": "portfolio:portfolio-policy"}
           resources:
             requests:
               cpu: 50m
@@ -25,7 +25,6 @@ spec:
               memory: 512Mi
           ports:
             - containerPort: 3000
-
           readinessProbe:
             httpGet:
               path: /
