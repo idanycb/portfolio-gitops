@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: portfolio
-          image: ghcr.io/idanycb/portfolio:v2.0.1 # {"$imagepolicy": "portfolio:portfolio-policy"}
+          image: ghcr.io/idanycb/portfolio:v2.0.3 # {"$imagepolicy": "portfolio:portfolio-policy"}
           resources:
             requests:
               cpu: 50m
