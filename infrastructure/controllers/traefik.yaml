@@ -57,7 +57,7 @@ spec:
           port: 443
           protocol: HTTPS
           certificateRefs:
-            - name: wildcard-danycb-tech-tls
+            - name: wildcard-danycb-com-tls
           namespacePolicy:
             from: All
 

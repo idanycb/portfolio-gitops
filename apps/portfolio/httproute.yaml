@@ -9,8 +9,8 @@ spec:
       namespace: traefik
       sectionName: websecure
   hostnames:
-    - "danycb.tech"
-    - "www.danycb.tech"
+    - "danycb.com"
+    - "www.danycb.com"
   rules:
     - matches:
         - path:

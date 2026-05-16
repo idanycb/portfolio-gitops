@@ -36,13 +36,13 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: wildcard-danycb-tech
+  name: wildcard-danycb-com
   namespace: traefik
 spec:
-  secretName: wildcard-danycb-tech-tls
+  secretName: wildcard-danycb-com-tls
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-    - "danycb.tech"
-    - "*.danycb.tech"
+    - "danycb.com"
+    - "*.danycb.com"

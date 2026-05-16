@@ -9,7 +9,7 @@ spec:
       namespace: traefik
       sectionName: websecure
   hostnames:
-    - "doc-analyzer.danycb.tech"
+    - "doc-analyzer.danycb.com"
   rules:
     - matches:
         - path:

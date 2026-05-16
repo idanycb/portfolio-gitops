@@ -14,11 +14,26 @@ write_files:
     content: |
       #!/bin/bash
       # Wait for K3s to be ready
-      export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+      LINE='export KUBECONFIG=/etc/rancher/k3s/k3s.yaml'
+      
+      # Check if the line already exists
+      if ! grep -Fxq "$LINE" ~/.bashrc; then
+          echo "$LINE" >> ~/.bashrc
+          echo "Added KUBECONFIG to ~/.bashrc"
+      else
+          echo "KUBECONFIG already present in ~/.bashrc"
+      fi
+      
+      # Reload bashrc for current session
+      source ~/.bashrc
+      echo "Reloaded ~/.bashrc"
+      
       until kubectl get nodes; do
         echo "Waiting for K3s..."
         sleep 5
       done
+      
+      kubectl create namespace infisical-secrets --dry-run=client -o yaml | kubectl apply -f -
       
       # Install Helm
       curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
@@ -28,9 +43,9 @@ write_files:
       helm repo update
       helm install secrets-operator infisical-helm-charts/secrets-operator \
         --namespace infisical \
-        --create-namespace
-      
-      kubectl create namespace infisical-secrets --dry-run=client -o yaml | kubectl apply -f -
+        --create-namespace \
+        --set controllerManager.serviceAccount.create=false \
+        --set controllerManager.serviceAccount.name=infisical-auth
 
   - path: /opt/bootstrap-runtime/bootstrap-flux.sh
     permissions: '0755'
@@ -60,11 +75,11 @@ write_files:
       fi
       
       # 3. Extract the Flux SSH Key from Infisical Secret
-      echo "Extracting Flux SSH Key from Infisical-provisioned secret..."
       NAMESPACE="flux-system"
-      SECRET_NAME="flux-system"
-      INFISICAL_SECRET_NAME="${INFISICAL_SECRET_NAME:-flux-ssh-key}"
-      INFISICAL_SECRET_NAMESPACE="${INFISICAL_SECRET_NAMESPACE:-$NAMESPACE}"
+      SECRET_NAME="flux-ssh-key"
+      
+      echo "Ensuring namespace $NAMESPACE exists..."
+      kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
       
       # Wait for the secret to appear (if the operator is still syncing)
       until kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" &> /dev/null; do
@@ -72,6 +87,7 @@ write_files:
         sleep 5
       done
       
+      echo "Extracting Flux SSH Key from Infisical-provisioned secret..."
       # Save the private key to a temporary file
       TEMP_KEY=$(mktemp)
       kubectl get secret -n "$NAMESPACE" "$SECRET_NAME" -o jsonpath='{.data.identity}' | base64 -d > "$TEMP_KEY"
@@ -85,6 +101,7 @@ write_files:
       
       trap cleanup_temp_key EXIT
       
+      
       # 4. Run Flux Bootstrap (SSH Method)
       echo "Bootstrapping Flux over SSH..."
       flux bootstrap git \
@@ -92,7 +109,12 @@ write_files:
         --branch=main \
         --path=clusters/prod \
         --secret-name="$SECRET_NAME" \
-        --private-key-file="$TEMP_KEY"
+        --private-key-file="$TEMP_KEY" \
+        --components-extra=image-reflector-controller,image-automation-controller
+      
+      # Add Gateway API CRDs to K3s manifests for Flux to manage
+      # curl -LO https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.0/standard-install.yaml
+      # sudo mv standard-install.yaml /var/lib/rancher/k3s/server/manifests/gateway-api-crds.yaml
       
       echo
       echo "Running post-bootstrap cleanup..."
@@ -118,33 +140,6 @@ write_files:
       
       MANIFEST_DIR="/var/lib/rancher/k3s/server/manifests"
       RUNTIME_SCRIPT_DIR="/opt/bootstrap-runtime"
-      
-      echo "🔍 Waiting for Flux-managed Traefik to take over..."
-      echo
-      
-      # Wait for Flux HelmRelease to exist
-      echo "⏳ Waiting for HelmRelease 'traefik' to appear..."
-      until kubectl get helmrelease -A 2>/dev/null | grep -qi "traefik"; do
-        sleep 5
-      done
-      echo "✔ Flux HelmRelease for Traefik detected."
-      
-      # Wait for Traefik Deployment to be healthy
-      echo "⏳ Waiting for Traefik Deployment to become Ready..."
-      until kubectl -n traefik get deploy traefik 2>/dev/null | grep -q "1/1"; do
-        sleep 5
-      done
-      echo "✔ Flux-managed Traefik Deployment is Ready."
-      
-      # Wait for K3s Traefik to disappear (K3s version uses namespace 'kube-system')
-      echo "⏳ Checking for K3s-managed Traefik..."
-      if kubectl -n kube-system get deploy traefik 2>/dev/null; then
-        echo "⚠ K3s Traefik still exists — waiting for Flux to override it..."
-        until ! kubectl -n kube-system get deploy traefik 2>/dev/null; do
-          sleep 5
-        done
-      fi
-      echo "✔ K3s Traefik is no longer active."
       
       echo
       echo "🧹 Starting cleanup of K3s static manifests..."
@@ -263,6 +258,6 @@ runcmd:
   - DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
   - netfilter-persistent save
   # Install K3s
-  - curl -sfL https://get.k3s.io | sh -s - --tls-san danycb.tech --write-kubeconfig-mode 644
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik" sh -s - --tls-san api.danycb.tech --write-kubeconfig-mode 644
   # Run the Infisical Operator installation script
   - "/opt/bootstrap-runtime/install-infisical-operator.sh"
