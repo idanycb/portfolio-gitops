@@ -26,3 +26,4 @@ spec:
         includeAllSecrets: false
         data:
           identity: "{{ .FLUX_SSH_PRIVATE_KEY.Value }}"
+          known_hosts: "{{ .FLUX_KNOWN_HOSTS.Value }}"
