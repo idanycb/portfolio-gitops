@@ -71,7 +71,7 @@ runcmd:
   - DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
   - netfilter-persistent save
   # Install K3s
-  - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik" sh -s - --tls-san api.danycb.tech --write-kubeconfig-mode 644
+  - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik" sh -s - --tls-san api.danycb.com --write-kubeconfig-mode 644
   # Run the Infisical Operator installation script
   - "$RUNTIME_SCRIPT_DIR/install-infisical-operator.sh"
 EOF
