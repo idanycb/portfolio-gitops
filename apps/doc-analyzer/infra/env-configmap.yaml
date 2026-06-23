@@ -5,6 +5,7 @@ data:
   AWS_SQS_QUEUE_NAME: findoc-analyzer-s3-eq
   POSTGRES_DB: findoc_analyzer_db
   POSTGRES_USER: danycb
+  SPRING_PROFILES_ACTIVE: demo
   SPRING_DATASOURCE_URL: jdbc:postgresql://pgvector:5432/findoc_analyzer_db
   UNSTRUCTURED_API_URL: http://unstructured-api:8000
   UNSTRUCTURED_URL: http://unstructured-api:8000/general/v0/general
