@@ -28,6 +28,10 @@ spec:
         kind: HelmRepository
         name: traefik
         namespace: traefik
+  install:
+    crds: Skip
+  upgrade:
+    crds: Skip
   values:
     service:
       enabled: true
