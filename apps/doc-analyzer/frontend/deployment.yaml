@@ -17,7 +17,7 @@ spec:
         - envFrom:
             - configMapRef:
                 name: env
-          image: ghcr.io/idanycb/findoc-rag-frontend:v1.0.2 # {"$imagepolicy": "doc-analyzer:frontend-policy"}
+          image: ghcr.io/idanycb/findoc-rag-frontend:v1.0.3 # {"$imagepolicy": "doc-analyzer:frontend-policy"}
           name: frontend
           ports:
             - containerPort: 3000
