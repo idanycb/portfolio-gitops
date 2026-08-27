@@ -38,11 +38,11 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: 350m
-              memory: 1Gi
+              cpu: 200m
+              memory: 512Mi
             limits:
-              cpu: 1200m
-              memory: 3Gi
+              cpu: 600m
+              memory: 2Gi
           volumeMounts:
             - mountPath: /var/lib/postgresql
               name: postgres-data

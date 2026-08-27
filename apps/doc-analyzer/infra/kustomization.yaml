@@ -5,4 +5,4 @@ resources:
   - infisical-secret.yaml
   - network-policies.yaml
   - pgvector.yaml
-  - unstructured-api.yaml
+  - docling-serve.yaml

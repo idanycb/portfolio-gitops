@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edgar-service
+  namespace: doc-analyzer
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: edgar-service
+  template:
+    metadata:
+      labels:
+        app: edgar-service
+    spec:
+      containers:
+        - name: edgar-service
+          image: ghcr.io/idanycb/findoc-rag-edgar-service:v1.1.1  # {"$imagepolicy": "doc-analyzer:edgar-service-policy"}
+          env:
+            - name: EDGAR_IDENTITY
+              valueFrom:
+                secretKeyRef:
+                  name: findoc-analyzer-secrets
+                  key: EDGAR_IDENTITY
+            - name: EDGAR_LOCAL_DATA_DIR
+              value: /var/cache/edgar/data
+            - name: EDGAR_CACHE_DIR
+              value: /var/cache/edgar/cache
+          ports:
+            - name: http
+              containerPort: 8100
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 30
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          volumeMounts:
+            - name: cache
+              mountPath: /var/cache/edgar
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: edgar-cache

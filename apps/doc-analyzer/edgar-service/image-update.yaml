@@ -1,0 +1,42 @@
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageRepository
+metadata:
+  name: edgar-service
+  namespace: doc-analyzer
+spec:
+  image: ghcr.io/idanycb/findoc-rag-edgar-service
+  interval: 5h
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImagePolicy
+metadata:
+  name: edgar-service-policy
+  namespace: doc-analyzer
+spec:
+  imageRepositoryRef:
+    name: edgar-service
+  policy:
+    semver:
+      range: '>=1.0.0'
+---
+apiVersion: image.toolkit.fluxcd.io/v1
+kind: ImageUpdateAutomation
+metadata:
+  name: edgar-service-update
+  namespace: doc-analyzer
+spec:
+  interval: 30m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  git:
+    commit:
+      author:
+        email: fluxcdbot@users.noreply.github.com
+        name: fluxcdbot
+      messageTemplate: "Update doc-analyzer EDGAR service image"
+  update:
+    path: "./apps/doc-analyzer/edgar-service"
+    strategy: Setters

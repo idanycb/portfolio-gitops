@@ -17,9 +17,22 @@ spec:
         - envFrom:
             - configMapRef:
                 name: env
-          image: ghcr.io/idanycb/findoc-rag-frontend:v1.1.0 # {"$imagepolicy": "doc-analyzer:frontend-policy"}
+          image: ghcr.io/idanycb/findoc-rag-frontend:v1.1.0  # {"$imagepolicy": "doc-analyzer:frontend-policy"}
           name: frontend
           ports:
             - containerPort: 3000
               protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            failureThreshold: 3
+            periodSeconds: 10
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
       restartPolicy: Always
