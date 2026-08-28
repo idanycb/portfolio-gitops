@@ -55,11 +55,11 @@ spec:
             timeoutSeconds: 2
           resources:
             requests:
-              cpu: 100m
+              cpu: 75m
               memory: 256Mi
             limits:
-              cpu: 500m
-              memory: 1Gi
+              cpu: 300m
+              memory: 512Mi
           volumeMounts:
             - name: cache
               mountPath: /var/cache/edgar

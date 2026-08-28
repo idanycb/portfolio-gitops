@@ -4,7 +4,7 @@ metadata:
   name: portfolio
   namespace: portfolio
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: portfolio
@@ -21,8 +21,8 @@ spec:
               cpu: 50m
               memory: 128Mi
             limits:
-              cpu: 250m
-              memory: 512Mi
+              cpu: 200m
+              memory: 256Mi
           ports:
             - containerPort: 3000
           readinessProbe:

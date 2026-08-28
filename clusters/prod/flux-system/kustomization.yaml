@@ -3,3 +3,17 @@ kind: Kustomization
 resources:
   - gotk-components.yaml
   - gotk-sync.yaml
+
+# The cluster is a single 2-OCPU/12-GB node. Flux controllers keep their
+# existing scheduler requests but must not each claim a full CPU and GiB.
+patches:
+  - target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=flux
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 500m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 512Mi

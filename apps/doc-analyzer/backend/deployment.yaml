@@ -53,9 +53,9 @@ spec:
             timeoutSeconds: 2
           resources:
             requests:
-              cpu: 250m
+              cpu: 200m
               memory: 512Mi
             limits:
-              cpu: 900m
-              memory: 1536Mi
+              cpu: 700m
+              memory: 1Gi
       restartPolicy: Always
