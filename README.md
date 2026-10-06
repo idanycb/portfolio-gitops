@@ -12,22 +12,18 @@ Main goals:
 
 ## Network architecture
 
-The node has no public IP. All inbound traffic reaches it through a network load balancer that only accepts known sources.
-
 ```
-client → Cloudflare proxy → OCI Network Load Balancer (public IP) → K3s instance (private subnet) → Traefik
-Infisical Cloud → api.danycb.com:6443 (DNS only) → Network Load Balancer → Kubernetes API
+client → Cloudflare proxy → OCI Network Load Balancer → K3s node (private subnet) → Traefik
 ```
 
-- K3s instance: private subnet, no public IP. Outbound access (GitHub, GHCR, Infisical, package mirrors) goes through the VCN's NAT gateway.
-- Network Load Balancer: public subnet, reserved public IP, TCP pass-through to the instance. Its network security group allows:
-  - 80 and 443 from Cloudflare's IPv4 ranges only (https://www.cloudflare.com/ips-v4)
-  - 6443 from Infisical's egress IPs only (Kubernetes Auth token review)
-- Cloudflare DNS: `danycb.com` and `*.danycb.com` are proxied. `api.danycb.com` is DNS only, because Cloudflare can't proxy port 6443 and Infisical must verify the API server's own certificate.
-- SSH: through OCI Bastion only. No SSH rules are open on the load balancer or the public subnet.
-- In the cluster, Traefik is the single entry point (Gateway API). App namespaces use default-deny ingress NetworkPolicies.
+- The node has no public IP. The load balancer only accepts traffic from Cloudflare.
+- Cloudflare and Traefik authenticate each other with mutual TLS: Cloudflare validates the origin certificate (Full strict), and Traefik requires Cloudflare's client certificate (authenticated origin pulls).
+- SSH access goes through OCI Bastion only.
+- Traefik is the single entry point (Gateway API), and app namespaces use default-deny NetworkPolicies.
 
-Cloudflare occasionally changes its IP ranges. When it does, update the load balancer's security group rules to match.
+### Authenticated origin pulls (mTLS)
+
+Traefik only accepts TLS connections that present a client certificate signed by a private CA, and only this zone's Cloudflare configuration holds that certificate. cert-manager issues and renews it, and a weekly CronJob uploads it to Cloudflare through the API. The manifests are in `infrastructure/configs/cloudflare-aop`.
 
 ## Repository layout
 
@@ -67,8 +63,8 @@ Notes:
 ## Bootstrap flow on server
 
 Cloud-init execution order:
-1. Install base packages and open host firewall ports 80, 443, 6443 (iptables). External exposure is controlled by the load balancer's security group, not the host.
-2. Install K3s with tls-san api.danycb.com (bundled Traefik disabled).
+1. Install base packages and configure the host firewall.
+2. Install K3s with the public API hostname as a TLS SAN (bundled Traefik disabled).
 3. Run install-infisical-operator.sh.
 4. K3s applies infisical-auth-setup.yaml and infisical-secret-sync.yaml from manifests directory.
 5. Infisical operator syncs the Flux private key into secret flux-system/flux-system.
@@ -85,9 +81,7 @@ After K3s is up, complete the Kubernetes Auth handshake in Infisical Cloud UI.
 
 Run on the OCI node through an OCI Bastion session (or any machine with kubectl access to this cluster):
 
-Kubernetes API URL for Infisical: `https://api.danycb.com:6443`
-
-On the node, `kubectl config view` reports `https://127.0.0.1:6443`, which only works locally. Infisical Cloud must use the public DNS name, which the API server certificate covers through `--tls-san`.
+Kubernetes API URL for Infisical: the public API hostname on port 6443, the same name passed to `--tls-san` in cloud-init. `kubectl config view` on the node reports `https://127.0.0.1:6443`, which only works locally.
 
 Get cluster CA certificate (base64):
 
@@ -137,8 +131,7 @@ This writes:
 - Create an OCI ARM instance (Ubuntu) in the private subnet, with no public IP.
 - Paste bootstrap/cloud-init.yaml as user-data.
 - Add the instance as the backend of the Network Load Balancer, which holds the reserved public IP.
-- Make sure the load balancer's security group allows 80/443 from Cloudflare's ranges and 6443 from Infisical's egress IPs only (see Network architecture).
-- Point Cloudflare DNS at the load balancer's public IP: proxy `danycb.com` and `*.danycb.com`, and set `api.danycb.com` to DNS only.
+- Restrict the load balancer's network security group and point Cloudflare DNS at its public IP.
 
 ### 3) Wait for first boot automation
 
