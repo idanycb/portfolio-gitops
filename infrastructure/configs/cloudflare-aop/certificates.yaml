@@ -1,0 +1,55 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cloudflare-aop-selfsigned
+  namespace: traefik
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cloudflare-aop-ca
+  namespace: traefik
+spec:
+  isCA: true
+  commonName: danycb.com Cloudflare AOP CA
+  secretName: cloudflare-aop-ca
+  duration: 87600h
+  renewBefore: 720h
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  issuerRef:
+    name: cloudflare-aop-selfsigned
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cloudflare-aop-ca
+  namespace: traefik
+spec:
+  ca:
+    secretName: cloudflare-aop-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cloudflare-aop-client
+  namespace: traefik
+spec:
+  commonName: cloudflare-origin-pull.danycb.com
+  secretName: cloudflare-aop-client
+  duration: 2160h
+  renewBefore: 720h
+  usages:
+    - client auth
+    - digital signature
+    - key encipherment
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  issuerRef:
+    name: cloudflare-aop-ca
+    kind: Issuer

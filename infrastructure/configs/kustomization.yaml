@@ -4,3 +4,4 @@ resources:
   - ./infisical
   - cert-manager.yaml
   - traefik.yaml
+  - ./cloudflare-aop

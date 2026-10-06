@@ -1,0 +1,152 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudflare-aop-rotation
+  namespace: traefik
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflare-aop-rotation
+  namespace: traefik
+data:
+  rotate.py: |
+    import json
+    import os
+    import sys
+    import time
+    import urllib.error
+    import urllib.request
+
+    API = "https://api.cloudflare.com/client/v4/zones/%s/origin_tls_client_auth" % os.environ["ZONE_ID"]
+    TOKEN = os.environ["CLOUDFLARE_API_TOKEN"]
+    GONE = {"pending_deletion", "deleted", "deletion_timed_out"}
+    END = "-----END CERTIFICATE-----"
+
+
+    def leaf(pem):
+        return pem[: pem.index(END) + len(END)] + "\n"
+
+
+    def body(pem):
+        return "".join(line.strip() for line in pem.splitlines() if line.strip() and not line.startswith("-----"))
+
+
+    def call(method, path="", payload=None):
+        data = None if payload is None else json.dumps(payload).encode()
+        request = urllib.request.Request(
+            API + path,
+            data=data,
+            method=method,
+            headers={"Authorization": "Bearer " + TOKEN, "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                reply = json.load(response)
+        except urllib.error.HTTPError as error:
+            sys.exit("%s %s failed: HTTP %s %s" % (method, path or "/", error.code, error.read().decode()[:500]))
+        if not reply.get("success"):
+            sys.exit("%s %s failed: %s" % (method, path or "/", reply.get("errors")))
+        return reply["result"]
+
+
+    def live():
+        return [c for c in call("GET") or [] if c.get("status") not in GONE]
+
+
+    with open("/cert/tls.crt") as f:
+        certificate = leaf(f.read())
+    with open("/cert/tls.key") as f:
+        private_key = f.read()
+
+    current = next((c for c in live() if body(c.get("certificate", "")) == body(certificate)), None)
+    if current is None:
+        current = call("POST", payload={"certificate": certificate, "private_key": private_key})
+        print("uploaded", current["id"], flush=True)
+
+    deadline = time.time() + 900
+    while current.get("status") != "active":
+        if time.time() > deadline:
+            sys.exit("certificate %s still %s after 15 minutes; older certificates left in place" % (current["id"], current.get("status")))
+        time.sleep(20)
+        current = next((c for c in live() if c["id"] == current["id"]), None)
+        if current is None:
+            sys.exit("uploaded certificate disappeared from Cloudflare")
+    print("active", current["id"], "expires", current.get("expires_on"), flush=True)
+
+    call("PUT", "/settings", {"enabled": True})
+    print("zone-level authenticated origin pulls enabled", flush=True)
+
+    for c in live():
+        if c["id"] != current["id"]:
+            call("DELETE", "/" + c["id"])
+            print("deleted", c["id"], flush=True)
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cloudflare-aop-rotation
+  namespace: traefik
+spec:
+  schedule: "23 5 * * 1"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1500
+      ttlSecondsAfterFinished: 604800
+      template:
+        spec:
+          serviceAccountName: cloudflare-aop-rotation
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: rotate
+              image: python:3.13-alpine
+              command: ["python", "/script/rotate.py"]
+              env:
+                - name: ZONE_ID
+                  value: bde50800377e21ac5587ac13d214779e
+                - name: PYTHONDONTWRITEBYTECODE
+                  value: "1"
+                - name: CLOUDFLARE_API_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: cloudflare-aop-api-token
+                      key: api-token
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+              volumeMounts:
+                - name: script
+                  mountPath: /script
+                  readOnly: true
+                - name: client-cert
+                  mountPath: /cert
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: cloudflare-aop-rotation
+            - name: client-cert
+              secret:
+                secretName: cloudflare-aop-client
+                defaultMode: 0440
