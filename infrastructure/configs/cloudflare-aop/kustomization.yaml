@@ -4,3 +4,4 @@ resources:
   - certificates.yaml
   - infisical-secret.yaml
   - rotation-job.yaml
+  - traefik-tlsoption.yaml
