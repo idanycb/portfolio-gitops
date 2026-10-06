@@ -8,3 +8,5 @@ spec:
     average: 2
     burst: 10
     period: 1s
+    sourceCriterion:
+      requestHeaderName: CF-Connecting-IP
